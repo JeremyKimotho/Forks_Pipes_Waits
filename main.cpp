@@ -260,14 +260,27 @@ int main()
         {
             bool run_background = false;
 
-            if (strcmp(argv[i - 1],"&") == 0) run_background = true;
+            if (strcmp(argv[i - 1],"&") == 0)
+            {
+                run_background = true;
+                argv[i - 1] = NULL;
+                i--;
+            } 
 
             int operator_response = checkOperators(argv);
 
             if (operator_response == 0)
             {
-                // int pid = fork();
-                cout << "Valid input: no operators, background " << run_background << endl;
+                int status;
+                int pid = fork();
+
+                if (pid == 0)
+                {
+                    cout << endl;
+                    execvp(argv[0], argv);
+                }
+
+                wait(&status);
             }
             else if (operator_response == 1)
             {
@@ -284,7 +297,8 @@ int main()
             else if (operator_response == 4)
             {
                 cout << "Valid input: $ operator, background " << run_background << endl;
-            }   
+            }
+
         }
         else if(parse_response == 2)
         {
