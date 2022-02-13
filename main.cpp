@@ -5,6 +5,8 @@ using namespace std;
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <string>
+#include <cstring>
+#include <fcntl.h>
 
 #define B_SIZE 1024
 #define DELIMITER " "
@@ -18,6 +20,8 @@ int parser(char *argv[50])
 {
     bool pipe_used = false;
     bool background_used = false;
+    bool i_o_used = false;
+    bool special_pipe_used = false;
 
     // Immediately flag a command with length less than two
     if (strlen(argv[0]) == 0 || strlen(argv[0]) == 1)
@@ -87,8 +91,11 @@ int parser(char *argv[50])
             pipe_used = true;
         if (strcmp(argv[i], "&") == 0)
             background_used = true;
-
-        i++;
+        if (strcmp(argv[i], "<") == 0 || strcmp(argv[i], ">") == 0)
+            i_o_used = true;
+        if (strcmp(argv[i], "$") == 0) 
+            special_pipe_used = true;
+            i++;
     }
 
     // Flag if a command ends with |, $, or <,>
@@ -111,6 +118,7 @@ int parser(char *argv[50])
         }
     }
 
+    // Flag if a command attempts to misuse the input/output redirection commands. Specifically using them in the wrong order, so any format not command -> file.
     for( int x = 0; x < i; x++)
     {
         if (strcmp(argv[x], "<") == 0 || strcmp(argv[x], ">") == 0)
@@ -125,9 +133,95 @@ int parser(char *argv[50])
             }
         }
     }
+
+    // Flag if a command attempts to use the $ operator incorrectly by having files instead of commands. Also flag if the $ operator is used in any other format than the three possible ones (cmd1 $ cmd2 cmd3, cmd1 cmd2 $ cmd3, cmd1 cmd2 $ cmd3 cmd4). Lastly if a command attempts to use $ in concert with other symbols.
+    if(special_pipe_used == true)
+    {
+        int special_pipe_index;
+
+        if(pipe_used == true || i_o_used == true)
+        {
+            cout << "Error: you cannot use special pipe $ in concert with other commands! \n" <<  endl;
+            return 1;
+        }
+
+        int x = 0;
+        while (argv[x] != NULL)
+        {
+            for (int y = 0; y < strlen(argv[x]); y++)
+            {
+                if (argv[x][y] == '.')
+                {
+                    cout << "Error: you cannot use files with the $ command! \n"
+                         << endl;
+                    return 1;
+                }
+            }
+
+            if (strcmp(argv[x],"$") == 0) special_pipe_index = x;
+            x++;
+        }
+
+        if (special_pipe_index == 1)
+        {
+            if (x != 4)
+            {
+                cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
+                     << endl;
+                return 1;
+            }
+        }
+        else if (special_pipe_index == 2)
+        {
+            if (x != 4 && x != 5)
+            {
+                cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
+                     << endl;
+                return 1;
+            }
+        }
+        else 
+        {
+            cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
+                 << endl;
+            return 1;
+        }
+    }
     
     return 0;
 
+}
+
+/*
+
+    This function checks what operators the command uses of |, <, >,$. It then returns either 0, 1, 2, 3 or 4. 0 means it doesn't contain any, and 1, 2, 3, 4 coincide with |, <, >, $.
+
+*/
+int checkOperators(char *argv[50])
+{
+    int i = 0;
+    while(argv[i] != NULL)
+    {
+        if (strcmp(argv[i],"|") == 0)
+        {
+            return 1;
+        }
+        else if (strcmp(argv[i], "<") == 0)
+        {
+            return 2;
+        }
+        else if (strcmp(argv[i], ">") == 0)
+        {
+            return 3;
+        }
+        else if (strcmp(argv[i], "$") == 0)
+        {
+            return 4;
+        }
+        i++;
+    }
+
+    return 0;
 }
 
 int main()
@@ -164,8 +258,33 @@ int main()
         int parse_response = parser(argv);
         if(parse_response == 0)
         {
-            // code for process execution
-            cout << "Valid input \n" << endl;
+            bool run_background = false;
+
+            if (strcmp(argv[i - 1],"&") == 0) run_background = true;
+
+            int operator_response = checkOperators(argv);
+
+            if (operator_response == 0)
+            {
+                // int pid = fork();
+                cout << "Valid input: no operators, background " << run_background << endl;
+            }
+            else if (operator_response == 1)
+            {
+                cout << "Valid input: | operator, background " << run_background << endl;
+            }
+            else if (operator_response == 2)
+            {
+                cout << "Valid input: < operator, background " << run_background << endl;
+            }
+            else if (operator_response == 3)
+            {
+                cout << "Valid input: > operator, background " << run_background << endl;
+            }
+            else if (operator_response == 4)
+            {
+                cout << "Valid input: $ operator, background " << run_background << endl;
+            }   
         }
         else if(parse_response == 2)
         {
