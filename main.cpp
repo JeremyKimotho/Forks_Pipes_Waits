@@ -6,10 +6,14 @@ using namespace std;
 #include <sys/types.h>
 #include <string>
 #include <cstring>
+#include <stdlib.h>
 #include <fcntl.h>
+#include <stdio.h>
 
 #define B_SIZE 1024
 #define DELIMITER " "
+#define READING 0x000
+#define WRITING 0x001
 
 /*
 
@@ -224,6 +228,58 @@ int checkOperators(char *argv[50])
     return 0;
 }
 
+/*
+
+    This function finds the index of the operator in argv
+
+*/
+int findOperatorIndex(char *argv[50], int op_code)
+{
+    int i = 0;
+    while(argv[i] != NULL)
+    {
+        if (op_code == 1)
+        {
+            if(strcmp(argv[i], "<") == 0)
+            {
+                return i;
+            }
+        }
+        else if (op_code == 2)
+        {
+            if(strcmp(argv[i], ">") == 0)
+            {
+                return i;
+            }
+        }
+        else if (op_code == 3)
+        {
+            if(strcmp(argv[i], "|") == 0)
+            {
+                return i;
+            }
+        }   
+        i++;
+    }
+    return -1;
+}
+
+/*
+
+    This command separates strings before the operator index, from the strings after it. Then returns a new string made up of just the strings before the operator index.  
+
+*/
+void findNewArgs(char* argv[50], int operator_index, char* new_args[50])
+{
+    int i = 0;
+    while(i < operator_index){
+        new_args[i] = argv[i];
+        i++;
+    }
+
+    new_args[i] = NULL;
+}
+
 int main()
 {
     while(1)
@@ -255,20 +311,27 @@ int main()
         //     i++;
         // }
 
+        // Parse input
         int parse_response = parser(argv);
+
+        // If command was valid
         if(parse_response == 0)
         {
+
+            // If command has & we need to make note and run it in background
             bool run_background = false;
 
-            if (strcmp(argv[i - 1],"&") == 0)
+            // Remove the & command from args if it exists and set bool true
+            if (strcmp(argv[i - 1], "&") == 0)
             {
                 run_background = true;
                 argv[i - 1] = NULL;
                 i--;
-            } 
+            }
 
             int operator_response = checkOperators(argv);
 
+            // Single commands with no operators
             if (operator_response == 0)
             {
                 int status;
@@ -280,7 +343,10 @@ int main()
                     execvp(argv[0], argv);
                 }
 
-                wait(&status);
+                if (run_background == false)
+                {
+                    wait(&status);
+                }
             }
             else if (operator_response == 1)
             {
@@ -288,7 +354,44 @@ int main()
             }
             else if (operator_response == 2)
             {
-                cout << "Valid input: < operator, background " << run_background << endl;
+                int operator_index = findOperatorIndex(argv, 1);
+                char *new_args[50];
+                findNewArgs(argv, operator_index, new_args);
+
+                int original_in = dup(fileno(stdin));
+
+                int in = open(argv[i - 1], READING | O_CREAT, 0600);
+                if (in == -1)
+                {
+                    cout << "Error: error opening file \n" << endl;
+                }
+                else
+                {
+                    cout << "File " << argv[i - 1] << " successfully opened" << endl;
+                }
+
+                dup2(in, 0);
+                close(in);
+
+                int status;
+                int pid = fork();
+
+                if (pid == 0)
+                {
+                    cout << endl;
+                    execvp(new_args[0], new_args);
+                }
+
+                if (run_background == false)
+                {
+                    wait(&status);
+                }
+
+                fflush(stdin);
+
+                dup2(original_in, 0);
+                close(original_in);
+
             }
             else if (operator_response == 3)
             {
