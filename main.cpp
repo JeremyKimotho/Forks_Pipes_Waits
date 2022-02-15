@@ -97,9 +97,11 @@ int parser(char *argv[50])
             background_used = true;
         if (strcmp(argv[i], "<") == 0 || strcmp(argv[i], ">") == 0)
             i_o_used = true;
-        if (strcmp(argv[i], "$") == 0) 
+        if (strcmp(argv[i], "$") == 0){
             special_pipe_used = true;
-            i++;
+        }
+        
+        i++;
     }
 
     // Flag if a command ends with |, $, or <,>
