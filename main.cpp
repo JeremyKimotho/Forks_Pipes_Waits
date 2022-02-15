@@ -430,8 +430,6 @@ int splitArgs2(char *argv[50], int operator_index, char *cmd1[25], char *cmd2[25
         // If command was valid
         if(parse_response == 0)
         {
-            cout << "Valid input \n";
-/*
             // If command has & we need to make note and run it in background
             bool run_background = false;
 
@@ -954,8 +952,6 @@ int splitArgs2(char *argv[50], int operator_index, char *cmd1[25], char *cmd2[25
                     }
                 }
             }
-*/
-
         }
         else if(parse_response == 2)
         {
