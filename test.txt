@@ -1,1 +1,10 @@
-This is a test file for my assignment 1 of CPSC 457
+
+total 192
+-rw-r--r--  1 jeremykimotho  staff    337 12 Feb 21:13 Makefile
+-rw-r--r--  1 jeremykimotho  staff    599 12 Feb 21:18 README.md
+-rw-r--r--  1 jeremykimotho  staff  13613 13 Feb 17:19 main.cpp
+-rwxr-xr-x  1 jeremykimotho  staff  63912 13 Feb 17:21 out
+drwxr-xr-x@ 3 jeremykimotho  staff     96 12 Feb 21:13 out.dSYM
+-rw-r--r--  1 jeremykimotho  staff     52 13 Feb 17:21 test.txt
+-rw-r--r--  1 jeremykimotho  staff      2 13 Feb 17:21 test2.txt
+mysh% 
