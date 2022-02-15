@@ -168,20 +168,38 @@ int parser(char *argv[50])
 
         if (special_pipe_index == 1)
         {
-            if (x != 4)
+            if (background_used == true && x != 5)
             {
                 cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
                      << endl;
                 return 1;
             }
-        }
-        else if (special_pipe_index == 2)
-        {
-            if (x != 4 && x != 5)
+            else if (background_used == false && x != 4)
             {
                 cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
                      << endl;
                 return 1;
+            }
+            else 
+            {
+            }
+        }
+        else if (special_pipe_index == 2)
+        {
+            if (background_used == true && (x != 5 && x != 6))
+            {
+                cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
+                     << endl;
+                return 1;
+            }
+            else if (background_used == false && (x != 4 && x != 5))
+            {
+                cout << "Error: $ command used in incorrect format. Use correct formats (cmd1 $ cmd2 cmd3), (cmd1 cmd2 $ cmd3), (cmd1 cmd2 $ cmd3 cmd4) ! \n"
+                     << endl;
+                return 1;
+            }
+            else
+            {
             }
         }
         else 
@@ -190,6 +208,7 @@ int parser(char *argv[50])
                  << endl;
             return 1;
         }
+        
     }
     
     return 0;
@@ -258,7 +277,14 @@ int findOperatorIndex(char *argv[50], int op_code)
             {
                 return i;
             }
-        }   
+        }  
+        else if (op_code == 4)
+        {
+            if (strcmp(argv[i], "$") == 0)
+            {
+                return i;
+            }
+        } 
         i++;
     }
     return -1;
@@ -306,7 +332,75 @@ void splitArgs(char *argv[50], int operator_index, char *left[25], char *right[2
     right[x] = NULL;
 }
 
-int main()
+
+/*
+
+    This function splits up the commands for the $ operator into cmd1, cmd2, cmd3 and cmd4 if there is a cmd4
+
+*/
+int splitArgs2(char *argv[50], int operator_index, char *cmd1[25], char *cmd2[25], char *cmd3[25], char *cmd4[25])
+{
+    // Count the number of commands in argv
+    int number_of_commands = 0;
+    while (argv[number_of_commands] != NULL)
+    {
+        number_of_commands++;
+    }
+
+    // Decrement by one because we don't include $ as one of the commands
+    number_of_commands--;
+
+    if (operator_index == 1)
+    {
+        // Setting commands based on number of arguments in argv
+        cmd1[0] = argv[0];
+        cmd1[1] = NULL;
+
+        cmd2[0] = argv[2];
+        cmd2[1] = NULL;
+
+        cmd3[0] = argv[3];
+        cmd3[1] = NULL;
+
+        cmd4[0] = NULL;
+    }
+    else
+    {
+        if (number_of_commands == 3)
+        {
+            // Setting commands based on number of arguments in argv
+            cmd1[0] = argv[0];
+            cmd1[1] = NULL;
+
+            cmd2[0] = argv[1];
+            cmd2[1] = NULL;
+
+            cmd3[0] = argv[3];
+            cmd3[1] = NULL;
+
+            cmd4[0] = NULL;
+        }
+        else
+        {
+            // Setting commands based on number of arguments in argv
+            cmd1[0] = argv[0];
+            cmd1[1] = NULL;
+
+            cmd2[0] = argv[1];
+            cmd2[1] = NULL;
+
+            cmd3[0] = argv[3];
+            cmd3[1] = NULL;
+
+            cmd4[0] = argv[4];
+            cmd4[1] = NULL;
+        }
+        
+    }
+   return number_of_commands;
+}
+
+    int main()
 {
     while(1)
     {
@@ -336,7 +430,8 @@ int main()
         // If command was valid
         if(parse_response == 0)
         {
-
+            cout << "Valid input \n";
+/*
             // If command has & we need to make note and run it in background
             bool run_background = false;
 
@@ -378,6 +473,7 @@ int main()
                 // Separate args either side of |
                 splitArgs(argv, operator_index, left, right);
 
+                // Create a pipe
                 int fd[2];
                 pipe(fd);
 
@@ -385,48 +481,62 @@ int main()
                 int original_in = dup(fileno(stdin));
                 int original_out = dup(fileno(stdout));
 
+                // Fork for right side execution 
                 int status;
                 int pid = fork();
 
                 if(pid == 0)
                 {
+                    // Set standard input to read end of pipe
                     dup2(fd[0], 0);
 
                     // Flush the output buffer
                     fflush(stdout);
 
-                    // Restore the stdout to the command shell
+                    // Restore the stdout to the command shell from the write end of the pipe
                     dup2(original_out, 1);
                     close(original_out);
 
+                    // Close both pipe ends
                     close(fd[0]);
                     close(fd[1]);
 
+                    // Execute the command on the right side of the | 
                     execvp(right[0], right);
                 }
                 else
                 {
+                    // Fork for left side execution
                     int pid2 = fork();
+                    int status2;
 
                     if (pid2 == 0)
                     {
+                        // Set the write end of the pipe to be our standard output so result of execution of command gets written to pipe
                         dup2(fd[1], 1);
 
+                        // Close both pipe ends
                         close(fd[0]);
                         close(fd[1]);
 
+                        // Execute the command on the left side of the |
                         execvp(left[0], left);
                     }
                     else if (pid2 > 0)
                     {
-                        int status;
+                        // Close both pipe ends and wait for the child process to complete
                         close(fd[0]);
                         close(fd[1]);
-                        waitpid(pid2, &status, 0);
+                        waitpid(pid2, &status2, 0);
                     }
 
+                    // Wait for child if & was used
                     if(run_background == false)
                     {
+                        // Close both pipe ends
+                        close(fd[0]);
+                        close(fd[1]);
+
                         waitpid(pid, &status, 0);
                     }                    
                 }
@@ -533,8 +643,318 @@ int main()
             // Any $ commands
             else if (operator_response == 4)
             {
-                cout << "Valid input: $ operator, background " << run_background << endl;
+                int operator_index = findOperatorIndex(argv, 4);
+                char *cmd1[25];
+                char *cmd2[25];
+                char *cmd3[25];
+                char *cmd4[25];
+                int number_of_commands = splitArgs2(argv,operator_index, cmd1,cmd2,cmd3,cmd4);
+
+                // Create a pipe
+                int fd[2];
+                pipe(fd);
+
+                // Save the fileno of the original stdin and stdout so we can restore it afterwards
+                int original_in = dup(fileno(stdin));
+                int original_out = dup(fileno(stdout));
+
+                if (operator_index == 1)
+                {
+                    // Fork for cmd3
+                    int status;
+                    int pid = fork();
+
+                    if (pid == 0)
+                    {
+                        // Close both pipe ends
+                        close(fd[0]);
+                        close(fd[1]);
+
+                        // Execute cmd3
+                        execvp(cmd3[0], cmd3);
+                    }
+                    else
+                    {
+                        // Fork for cmd2
+                        int status2;
+                        int pid2 = fork();
+
+                        if(pid2 == 0)
+                        {
+                            // Set standard input to read end of pipe
+                            dup2(fd[0], 0);
+
+                            // Flush the output buffer
+                            fflush(stdout);
+
+                            // Restore the stdout to the command shell from the write end of the pipe
+                            dup2(original_out, 1);
+                            close(original_out);
+
+                            // Close both pipe ends
+                            close(fd[0]);
+                            close(fd[1]);
+
+                            // Execute cmd2
+                            execvp(cmd2[0], cmd2);
+                        }
+                        else
+                        {
+                            // Fork for cmd1
+                            int status3;
+                            int pid3 = fork();
+
+                            if(pid3 == 0)
+                            {
+                                // Set the write end of the pipe to be our standard output so result of execution of command gets written to pipe
+                                dup2(fd[1], 1);
+
+                                // Close both pipe ends
+                                close(fd[0]);
+                                close(fd[1]);
+
+                                // Execute cmd1
+                                execvp(cmd1[0], cmd1);
+                            }
+                            else 
+                            {
+                                // Close both pipe ends and wait for the child process to complete
+                                close(fd[0]);
+                                close(fd[1]);
+                                waitpid(pid3, &status3, 0);
+                            }
+
+                            // Close both pipe ends and wait for the child process to complete
+                            close(fd[0]);
+                            close(fd[1]);
+                            waitpid(pid2, &status2, 0);
+                        }
+
+                        // Wait for child if & was used
+                        if (run_background == false)
+                        {
+                            // Close both pipe ends
+                            close(fd[0]);
+                            close(fd[1]);
+
+                            waitpid(pid, &status, 0);
+                        }
+                    }
+
+                    // Flush the input buffer
+                    fflush(stdin);
+
+                    // Restore the stdin to the keyboard
+                    dup2(original_in, 0);
+                    close(original_in);
+                }
+                else
+                {
+                    if (number_of_commands == 3)
+                    {
+                        // Fork for cmd3
+                        int status;
+                        int pid = fork();
+
+                        if (pid == 0)
+                        {
+                            // Set standard input to read end of pipe
+                            dup2(fd[0], 0);
+
+                            // Flush the output buffer
+                            fflush(stdout);
+
+                            // Restore the stdout to the command shell from the write end of the pipe
+                            dup2(original_out, 1);
+                            close(original_out);
+                            
+                            // Close both pipe ends
+                            close(fd[0]);
+                            close(fd[1]);
+
+                            // Execute cmd3
+                            execvp(cmd3[0], cmd3);
+                        }
+                        else
+                        {
+                            // Fork for cmd2
+                            int status2;
+                            int pid2 = fork();
+
+                            if (pid2 == 0)
+                            {
+                                // Close both pipe ends
+                                close(fd[0]);
+                                close(fd[1]);
+
+                                // Execute cmd2
+                                execvp(cmd2[0], cmd2);
+                            }
+                            else
+                            {
+                                // Fork for cmd1
+                                int status3;
+                                int pid3 = fork();
+
+                                if (pid3 == 0)
+                                {
+                                    // Set the write end of the pipe to be our standard output so result of execution of command gets written to pipe
+                                    dup2(fd[1], 1);
+
+                                    // Close both pipe ends
+                                    close(fd[0]);
+                                    close(fd[1]);
+
+                                    // Execute cmd1
+                                    execvp(cmd1[0], cmd1);
+                                }
+                                else
+                                {
+                                    // Close both pipe ends and wait for the child process to complete
+                                    close(fd[0]);
+                                    close(fd[1]);
+                                    waitpid(pid3, &status3, 0);
+                                }
+
+                                // Close both pipe ends and wait for the child process to complete
+                                close(fd[0]);
+                                close(fd[1]);
+                                waitpid(pid2, &status2, 0);
+                            }
+
+                            // Wait for child if & was used
+                            if (run_background == false)
+                            {
+                                // Close both pipe ends
+                                close(fd[0]);
+                                close(fd[1]);
+
+                                waitpid(pid, &status, 0);
+                            }
+                        }
+
+                        // Flush the input buffer
+                        fflush(stdin);
+
+                        // Restore the stdin to the keyboard
+                        dup2(original_in, 0);
+                        close(original_in);
+                    }
+                    else 
+                    {
+                        // Fork for cmd4
+                        int status4;
+                        int pid4 = fork();
+
+                        if (pid4 == 0)
+                        {
+                            // Close both pipe ends
+                            close(fd[0]);
+                            close(fd[1]);
+
+                            // Execute cmd4
+                            execvp(cmd4[0], cmd4);
+                        }
+                        else
+                        {
+                            // Fork for cmd3
+                            int status3;
+                            int pid3 = fork();
+
+                            if (pid3 == 0)
+                            {
+                                // Set standard input to read end of pipe
+                                dup2(fd[0], 0);
+
+                                // Flush the output buffer
+                                fflush(stdout);
+
+                                // Restore the stdout to the command shell from the write end of the pipe
+                                dup2(original_out, 1);
+                                close(original_out);
+
+                                // Close both pipe ends
+                                close(fd[0]);
+                                close(fd[1]);
+
+                                // Execute cmd3
+                                execvp(cmd3[0], cmd3);
+                            }
+                            else
+                            {
+                                // Fork for cmd2
+                                int status2;
+                                int pid2 = fork();
+
+                                if (pid2 == 0)
+                                {
+                                    // Close both pipe ends
+                                    close(fd[0]);
+                                    close(fd[1]);
+
+                                    // Execute cmd2
+                                    execvp(cmd2[0], cmd2);
+                                }
+                                else
+                                {
+                                    // Fork for cmd1
+                                    int status;
+                                    int pid = fork();
+
+                                    if (pid == 0)
+                                    {
+                                        // Set the write end of the pipe to be our standard output so result of execution of command gets written to pipe
+                                        dup2(fd[1], 1);
+
+                                        // Close both pipe ends
+                                        close(fd[0]);
+                                        close(fd[1]);
+
+                                        // Execute cmd1
+                                        execvp(cmd1[0], cmd1);
+                                    }
+                                    else
+                                    {
+
+                                        // Close both pipe ends and wait for the child process to complete
+                                        close(fd[0]);
+                                        close(fd[1]);
+                                        waitpid(pid, &status, 0);
+                                    }
+
+                                    // Close both pipe ends and wait for the child process to complete
+                                    close(fd[0]);
+                                    close(fd[1]);
+                                    waitpid(pid2, &status2, 0);
+                                }
+
+                                // Close both pipe ends and wait for the child process to complete
+                                close(fd[0]);
+                                close(fd[1]);
+                                waitpid(pid3, &status3, 0);
+                            }
+
+                            // Wait for child if & was used
+                            if (run_background == false)
+                            {
+                                // Close both pipe ends
+                                close(fd[0]);
+                                close(fd[1]);
+
+                                waitpid(pid4, &status4, 0);
+                            }
+                        }
+
+                        // Flush the input buffer
+                        fflush(stdin);
+
+                        // Restore the stdin to the keyboard
+                        dup2(original_in, 0);
+                        close(original_in);
+                    }
+                }
             }
+*/
 
         }
         else if(parse_response == 2)
